@@ -109,7 +109,7 @@ More in [ARCHITECTURE.md](ARCHITECTURE.md#6-known-gaps-and-deliberate-deviations
 pytest tests -q
 ```
 
-45 tests, about 3.5 minutes (most of that is real browser runs). `pytest tests/test_classifier.py
+47 tests, about 3.5 minutes (most of that is real browser runs). `pytest tests/test_classifier.py
 tests/test_duplicate_detector.py tests/test_state.py -q` runs the logic suite in about a second.
 
 Tests run against an isolated portal (temp DB, temp work directory, free port) and never touch
@@ -142,7 +142,7 @@ linda_agent/
     classifier.py       deterministic SOP + collected exception reasons
     duplicate_detector.py  arrival-order duplicate analysis with corroboration
 portal/                 the provided sandbox
-tests/                  45 tests + OCR fixtures
+tests/                  47 tests + OCR fixtures
 results.json, results.csv
 ```
 
