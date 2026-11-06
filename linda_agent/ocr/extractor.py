@@ -32,7 +32,8 @@ class DocumentExtractor:
         re.IGNORECASE,
     )
     # Unlabeled fallback. Lookarounds instead of \b because OCR glues words together.
-    FALLBACK_ID_PATTERN = re.compile(r"(?<![A-Za-z0-9])([A-Z]{1,4}-\d{3,5}[A-Z]?)(?![A-Za-z0-9])")
+    # Two or more letters: a one-letter prefix is too loose to trust as a document identity.
+    FALLBACK_ID_PATTERN = re.compile(r"(?<![A-Za-z0-9])([A-Z]{2,4}-\d{3,5}[A-Z]?)(?![A-Za-z0-9])")
     ORIGINAL_DOC_ID_PATTERN = re.compile(
         r"Original\s*Document\s*ID\s*[:#]?\s*([A-Za-z0-9\-]+)", re.IGNORECASE
     )
@@ -46,12 +47,17 @@ class DocumentExtractor:
     DOB_PATTERN = re.compile(r"(?:DOB|Date\s*of\s*Birth)\s*[:#]?\s*(\d{2}/\d{2}/\d{4})", re.IGNORECASE)
 
     # ---------------------------------------------------------------- urgency
-    # Tier 1: specific phrases, matched case-insensitively.
+    # Tier 1: specific phrases, matched case-insensitively. Each maps to a readable label,
+    # because OCR output ("Criticalvaluenotification") reads sloppily in a routing note.
     URGENT_SPECIFIC = [
-        re.compile(r"CRITICAL\s*RESULT\s*[-\u2013\u2014:]?\s*CALLING\s*PROVIDER", re.IGNORECASE),
-        re.compile(r"CRITICAL\s*VALUE\s*NOTIFICATION", re.IGNORECASE),
-        re.compile(r"PANIC\s*VALUE", re.IGNORECASE),
-        re.compile(r"URGENT\s*(?:FLAG|REVIEW|ATTENTION|RESULT)", re.IGNORECASE),
+        (re.compile(r"CRITICAL\s*RESULT\s*[-\u2013\u2014:]?\s*CALLING\s*PROVIDER", re.IGNORECASE),
+         lambda m: "CRITICAL RESULT - CALLING PROVIDER"),
+        (re.compile(r"CRITICAL\s*VALUE\s*NOTIFICATION", re.IGNORECASE),
+         lambda m: "CRITICAL VALUE NOTIFICATION"),
+        (re.compile(r"PANIC\s*VALUE", re.IGNORECASE),
+         lambda m: "PANIC VALUE"),
+        (re.compile(r"URGENT\s*(FLAG|REVIEW|ATTENTION|RESULT)", re.IGNORECASE),
+         lambda m: f"URGENT {m.group(1).upper()}"),
     ]
     # Tier 2: bare tokens count only as ALL-CAPS standalone tokens, so ordinary prose
     # ("critical thinking", "Status") does not trip them.
@@ -112,9 +118,9 @@ class DocumentExtractor:
     def _scan_urgency(self, page_text: str) -> Tuple[List[str], int]:
         """Returns (affirmed flags on this page, number of negated mentions)."""
         spans: List[Tuple[int, int, str]] = []
-        for pat in self.URGENT_SPECIFIC:
+        for pat, label in self.URGENT_SPECIFIC:
             for m in pat.finditer(page_text):
-                spans.append((m.start(), m.end(), m.group(0).strip()))
+                spans.append((m.start(), m.end(), label(m)))
         for m in self.URGENT_BARE.finditer(page_text):
             spans.append((m.start(), m.end(), m.group(0).strip()))
 

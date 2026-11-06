@@ -64,11 +64,13 @@ def test_fx202_note_has_flag_and_reported_value(docs):
     d = SOPClassifier.classify(docs["FX-202"])
     assert d.action == "needs_review"
     note = d.selected_fields.notes
-    assert "CRITICAL RESULT-CALLING PROVIDER" in note
+    assert "CRITICAL RESULT - CALLING PROVIDER" in note
     assert "Potassium 6.3 mmol/L" in note
     assert "no clinical action" in note
-    # contained duplicate removed: a bare CRITICAL inside the longer phrase is not listed twice
-    assert "; CRITICAL" not in note.replace("CRITICAL RESULT-CALLING PROVIDER", "")
+    # readable labels, not glued OCR ("Criticalvaluenotification"), and nothing listed twice:
+    # the bare CRITICAL inside the longer phrase is dropped
+    assert docs["FX-202"].urgent_flags == ["CRITICAL RESULT - CALLING PROVIDER", "CRITICAL VALUE NOTIFICATION"]
+    assert "Criticalvalue" not in note and "RESULT-CALLING" not in note
     assert len(note) <= 1000
 
 
@@ -97,7 +99,7 @@ def test_value_capture_failure_never_changes_routing(extractor):
     assert doc.urgent_value is None
     d = SOPClassifier.classify(doc)
     assert d.action == "needs_review"
-    assert "CRITICAL RESULT-CALLING PROVIDER" in d.selected_fields.notes
+    assert "CRITICAL RESULT - CALLING PROVIDER" in d.selected_fields.notes
     assert "Reported value" not in d.selected_fields.notes
 
 
@@ -124,6 +126,18 @@ def test_word_unknown_in_prose_is_not_incomplete(extractor):
 def test_fallback_id_never_returns_the_fax_id(extractor):
     doc = extractor.extract("FX-904", [_page("PRESCRIPTIONREFILLREQUEST\nTransmissionFX-904Page1of1\nRef RX-4005 below")], pages_portal=1)
     assert doc.source_doc_id == "RX-4005"
+
+
+def test_fallback_id_needs_two_or_more_letters(extractor):
+    """A one-letter prefix is too loose to count as a document identity."""
+    doc = extractor.extract("FX-905", [_page("PRESCRIPTIONREFILLREQUEST\nPatient:Al Bo\nSee X-1234 for details")], pages_portal=1)
+    assert doc.source_doc_id is None
+
+
+def test_labeled_one_letter_transmission_id_is_still_read(extractor):
+    """FX-209's 'Transmission ID: U-4009' is a labeled value, so it is accepted."""
+    doc = extractor.extract("FX-906", [_page("FAXDOCUMENT\nTransmissionID:U-4009")], pages_portal=1)
+    assert doc.source_doc_id == "U-4009"
 
 
 def test_fx212_note_names_its_enclosures(docs):

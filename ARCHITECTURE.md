@@ -79,7 +79,8 @@ characters, truncated visibly with `...`):
    tokens. A match is negated only by a negator directly in front of it ("No urgent flag").
    A negated mention on one page never hides a flag on another; if both occur the packet is
    flagged and a conflicting-signal note is added. Matches contained in a longer match are
-   dropped. The note carries the fax's own flag text and, best-effort, the reported value
+   dropped. The note carries a readable label for each flag phrase found (glued OCR text such as
+   `Criticalvaluenotification` is normalised to `CRITICAL VALUE NOTIFICATION`) and, best-effort, the reported value
    (e.g. `Potassium 6.3 mmol/L`). The value never influences routing. The note also states that
    no clinical action was taken.
 2. **Mixed packet.** Explicit "multiple enclosures" text or more than one document category

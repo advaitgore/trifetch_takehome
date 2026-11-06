@@ -81,11 +81,11 @@
       "assignee_name": "Jordan Ellis - Manual Review",
       "doc_type": "Needs Review",
       "folder": "Review / Unclassified",
-      "notes": "URGENT / CRITICAL FLAG on fax: CRITICAL RESULT-CALLING PROVIDER; Criticalvaluenotification | Reported value: Potassium 6.3 mmol/L | Automation took no clinical action; manual review required"
+      "notes": "URGENT / CRITICAL FLAG on fax: CRITICAL RESULT - CALLING PROVIDER; CRITICAL VALUE NOTIFICATION | Reported value: Potassium 6.3 mmol/L | Automation took no clinical action; manual review required"
     },
     "verification": "verified_on_portal",
     "errors_retries": 0,
-    "notes": "URGENT / CRITICAL FLAG on fax: CRITICAL RESULT-CALLING PROVIDER; Criticalvaluenotification | Reported value: Potassium 6.3 mmol/L | Automation took no clinical action; manual review required",
+    "notes": "URGENT / CRITICAL FLAG on fax: CRITICAL RESULT - CALLING PROVIDER; CRITICAL VALUE NOTIFICATION | Reported value: Potassium 6.3 mmol/L | Automation took no clinical action; manual review required",
     "received_at": "2026-11-03 08:06",
     "source_doc_id": "LAB-8302",
     "original_doc_id": null,

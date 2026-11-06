@@ -59,7 +59,7 @@ async def test_full_run_matches_ground_truth_and_is_idempotent(portal_server, db
     assert set(counts) == {f for f, e in EXPECTED.items() if e[0] in ("routed", "needs_review")} | {"FX-211"}
     assert "FX-210" not in counts
     assert "FX-211" not in ocr.calls                      # pre-routed fax is never downloaded/OCR'd
-    assert res["FX-202"]["selected_fields"]["notes"].count("CRITICAL RESULT-CALLING PROVIDER") == 1
+    assert res["FX-202"]["selected_fields"]["notes"].count("CRITICAL RESULT - CALLING PROVIDER") == 1
     assert "Potassium 6.3 mmol/L" in res["FX-202"]["selected_fields"]["notes"]
     assert "Imaging Report" in res["FX-211"]["notes"]     # existing assignment recorded read-only
 

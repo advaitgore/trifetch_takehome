@@ -86,6 +86,23 @@ the work queue holds exactly one row per routed fax.
 * **Restart safety.** Progress, extraction evidence and a pre-submit intent are checkpointed.
   Failures stay failures and are retried. On startup the checkpoint is reconciled against the portal.
 
+## Known gaps (read before relying on this)
+
+* **The routing note is never read back.** The portal stores it (truncated to 1000 characters) but
+  does not display it on any page. The agent verifies assignee, document type and folder; it cannot
+  verify that the note text was saved.
+* **Fax pages are opened by URL (deliberate deviation).** Login, the inbox walk and the Routed
+  Documents link go through the visible UI. Opening `/faxes/{id}` and `/faxes/{id}/route` uses a
+  direct `goto` instead of clicking the row. The fax ID is the key in both sessions. We chose this to
+  limit scope; the brief asks for UI navigation, so this item is only partly met.
+* **OCR makes mistakes.** The committed results contain `OoliverGrant` (FX-204), `SydneyPatel`
+  (FX-205), `ElenaHart` (FX-210) and `PkT-4012` (FX-212; the brief has `PKT-4012`). These affect
+  recorded evidence only; the document titles that drive routing were read correctly on all 11
+  downloaded faxes. No accuracy percentage is claimed.
+* **Rules are keyword based.** An unfamiliar layout falls to Manual Review, not to a wrong route.
+
+More in [ARCHITECTURE.md](ARCHITECTURE.md#6-known-gaps-and-deliberate-deviations).
+
 ## Tests
 
 ```bash
