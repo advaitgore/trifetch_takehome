@@ -1,0 +1,13 @@
+fax_id,extracted_type,source_id_evidence,action,selected_assignee,selected_doc_type,selected_folder,verification,errors_retries,notes
+FX-201,Referral,Type: Referral; DocID: RF-3001; Patient: Elena Hart; Urgent: False; Mixed: False; Incomplete: False,routed,olivia,Referral,Referrals / New,verified_on_portal,0,
+FX-202,Lab Result,Type: Lab Result; DocID: LAB-8302; Patient: Marcus Bell; Urgent: True; Mixed: False; Incomplete: False,needs_review,jordan,Needs Review,Review / Unclassified,verified_on_portal,0,URGENT / CRITICAL ALERT: CRITICAL RESULT-CALLING PROVIDER; CRITICAL
+FX-203,Imaging Report,Type: Imaging Report; DocID: IMG-4003; Patient: Naomi Lee; Urgent: False; Mixed: False; Incomplete: False,routed,noah,Imaging Report,Clinical / Imaging,verified_on_portal,0,
+FX-204,Prior Authorization,Type: Prior Authorization; DocID: PA-4004; Patient: OoliverGrant; Urgent: False; Mixed: False; Incomplete: False,routed,ethan,Prior Authorization,Authorizations / Pending,verified_on_portal,0,
+FX-205,Refill Request,Type: Refill Request; DocID: RX-4005; Patient: SydneyPatel; Urgent: False; Mixed: False; Incomplete: False,routed,ava,Refill Request,Nursing / Medication,verified_on_portal,0,
+FX-206,Records Request,Type: Records Request; DocID: MR-4006; Patient: Cameron Blake; Urgent: False; Mixed: False; Incomplete: False,routed,mia,Records Request,Records / Requests,verified_on_portal,0,
+FX-207,EOB,Type: EOB; DocID: EOB-4007; Patient: Jordan Clark; Urgent: False; Mixed: False; Incomplete: False,routed,liam,EOB,Billing / EOBs,verified_on_portal,0,
+FX-208,Lab Result,Type: Lab Result; DocID: LAB-4008; Patient: Talia Nguyen; Urgent: False; Mixed: False; Incomplete: False,routed,noah,Lab Result,Clinical / Labs,verified_on_portal,0,
+FX-209,Incomplete Document,Type: Incomplete Document; DocID: None; Patient: None; Urgent: False; Mixed: False; Incomplete: True,needs_review,jordan,Needs Review,Review / Unclassified,verified_on_portal,0,Incomplete packet or unclear classification requiring manual review
+FX-210,Fax Resend,Type: Fax Resend; DocID: RF-3001; Patient: ElenaHart; Urgent: False; Mixed: False; Incomplete: False,skipped_duplicate,,,,skipped,0,Confirmed duplicate / resend of source document RF-3001
+FX-211,Pre-routed Document,Pre-existing portal record,already_routed,,,,not_applicable,0,Pre-routed in portal before assessment
+FX-212,Mixed Packet,Type: Mixed Packet; DocID: PkT-4012; Patient: Riley Morgan; Urgent: False; Mixed: True; Incomplete: False,needs_review,jordan,Needs Review,Review / Unclassified,verified_on_portal,0,Mixed packet containing multiple distinct document categories

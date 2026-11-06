@@ -1,0 +1,30 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Caches and tests
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environments
+.venv/
+env/
+venv/
+ENV/
+
+# Local databases and runtime state
+*.sqlite3
+*.sqlite3-journal
+downloads/*.pdf
+!downloads/.gitkeep
+checkpoints/*.tmp
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# Runtime logs
+*.log

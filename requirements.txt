@@ -1,0 +1,17 @@
+# Core Portal Dependencies
+fastapi>=0.115.0
+uvicorn>=0.30.0
+python-multipart>=0.0.19
+
+# Browser Automation & Testing
+playwright>=1.40.0
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+httpx>=0.27.0
+
+# Local Offline OCR & Document Parsing
+rapidocr-onnxruntime>=1.4.0
+pypdfium2>=4.30.0
+numpy>=1.26.0
+Pillow>=10.0.0
+pydantic>=2.7.0

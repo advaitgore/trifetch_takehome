@@ -1,0 +1,182 @@
+[
+  {
+    "fax_id": "FX-201",
+    "extracted_type": "Referral",
+    "source_id_evidence": "Type: Referral; DocID: RF-3001; Patient: Elena Hart; Urgent: False; Mixed: False; Incomplete: False",
+    "action": "routed",
+    "selected_fields": {
+      "assignee_slug": "olivia",
+      "assignee_name": "Olivia Chen - Referrals",
+      "doc_type": "Referral",
+      "folder": "Referrals / New",
+      "notes": ""
+    },
+    "verification": "verified_on_portal",
+    "errors_retries": 0,
+    "notes": ""
+  },
+  {
+    "fax_id": "FX-202",
+    "extracted_type": "Lab Result",
+    "source_id_evidence": "Type: Lab Result; DocID: LAB-8302; Patient: Marcus Bell; Urgent: True; Mixed: False; Incomplete: False",
+    "action": "needs_review",
+    "selected_fields": {
+      "assignee_slug": "jordan",
+      "assignee_name": "Jordan Ellis - Manual Review",
+      "doc_type": "Needs Review",
+      "folder": "Review / Unclassified",
+      "notes": "URGENT / CRITICAL ALERT: CRITICAL RESULT-CALLING PROVIDER; CRITICAL"
+    },
+    "verification": "verified_on_portal",
+    "errors_retries": 0,
+    "notes": "URGENT / CRITICAL ALERT: CRITICAL RESULT-CALLING PROVIDER; CRITICAL"
+  },
+  {
+    "fax_id": "FX-203",
+    "extracted_type": "Imaging Report",
+    "source_id_evidence": "Type: Imaging Report; DocID: IMG-4003; Patient: Naomi Lee; Urgent: False; Mixed: False; Incomplete: False",
+    "action": "routed",
+    "selected_fields": {
+      "assignee_slug": "noah",
+      "assignee_name": "Noah Patel - Clinical Review",
+      "doc_type": "Imaging Report",
+      "folder": "Clinical / Imaging",
+      "notes": ""
+    },
+    "verification": "verified_on_portal",
+    "errors_retries": 0,
+    "notes": ""
+  },
+  {
+    "fax_id": "FX-204",
+    "extracted_type": "Prior Authorization",
+    "source_id_evidence": "Type: Prior Authorization; DocID: PA-4004; Patient: OoliverGrant; Urgent: False; Mixed: False; Incomplete: False",
+    "action": "routed",
+    "selected_fields": {
+      "assignee_slug": "ethan",
+      "assignee_name": "Ethan Brooks - Authorizations",
+      "doc_type": "Prior Authorization",
+      "folder": "Authorizations / Pending",
+      "notes": ""
+    },
+    "verification": "verified_on_portal",
+    "errors_retries": 0,
+    "notes": ""
+  },
+  {
+    "fax_id": "FX-205",
+    "extracted_type": "Refill Request",
+    "source_id_evidence": "Type: Refill Request; DocID: RX-4005; Patient: SydneyPatel; Urgent: False; Mixed: False; Incomplete: False",
+    "action": "routed",
+    "selected_fields": {
+      "assignee_slug": "ava",
+      "assignee_name": "Ava Wilson - Nursing / Medication",
+      "doc_type": "Refill Request",
+      "folder": "Nursing / Medication",
+      "notes": ""
+    },
+    "verification": "verified_on_portal",
+    "errors_retries": 0,
+    "notes": ""
+  },
+  {
+    "fax_id": "FX-206",
+    "extracted_type": "Records Request",
+    "source_id_evidence": "Type: Records Request; DocID: MR-4006; Patient: Cameron Blake; Urgent: False; Mixed: False; Incomplete: False",
+    "action": "routed",
+    "selected_fields": {
+      "assignee_slug": "mia",
+      "assignee_name": "Mia Gomez - Medical Records",
+      "doc_type": "Records Request",
+      "folder": "Records / Requests",
+      "notes": ""
+    },
+    "verification": "verified_on_portal",
+    "errors_retries": 0,
+    "notes": ""
+  },
+  {
+    "fax_id": "FX-207",
+    "extracted_type": "EOB",
+    "source_id_evidence": "Type: EOB; DocID: EOB-4007; Patient: Jordan Clark; Urgent: False; Mixed: False; Incomplete: False",
+    "action": "routed",
+    "selected_fields": {
+      "assignee_slug": "liam",
+      "assignee_name": "Liam Rivera - Billing",
+      "doc_type": "EOB",
+      "folder": "Billing / EOBs",
+      "notes": ""
+    },
+    "verification": "verified_on_portal",
+    "errors_retries": 0,
+    "notes": ""
+  },
+  {
+    "fax_id": "FX-208",
+    "extracted_type": "Lab Result",
+    "source_id_evidence": "Type: Lab Result; DocID: LAB-4008; Patient: Talia Nguyen; Urgent: False; Mixed: False; Incomplete: False",
+    "action": "routed",
+    "selected_fields": {
+      "assignee_slug": "noah",
+      "assignee_name": "Noah Patel - Clinical Review",
+      "doc_type": "Lab Result",
+      "folder": "Clinical / Labs",
+      "notes": ""
+    },
+    "verification": "verified_on_portal",
+    "errors_retries": 0,
+    "notes": ""
+  },
+  {
+    "fax_id": "FX-209",
+    "extracted_type": "Incomplete Document",
+    "source_id_evidence": "Type: Incomplete Document; DocID: None; Patient: None; Urgent: False; Mixed: False; Incomplete: True",
+    "action": "needs_review",
+    "selected_fields": {
+      "assignee_slug": "jordan",
+      "assignee_name": "Jordan Ellis - Manual Review",
+      "doc_type": "Needs Review",
+      "folder": "Review / Unclassified",
+      "notes": "Incomplete packet or unclear classification requiring manual review"
+    },
+    "verification": "verified_on_portal",
+    "errors_retries": 0,
+    "notes": "Incomplete packet or unclear classification requiring manual review"
+  },
+  {
+    "fax_id": "FX-210",
+    "extracted_type": "Fax Resend",
+    "source_id_evidence": "Type: Fax Resend; DocID: RF-3001; Patient: ElenaHart; Urgent: False; Mixed: False; Incomplete: False",
+    "action": "skipped_duplicate",
+    "selected_fields": {},
+    "verification": "skipped",
+    "errors_retries": 0,
+    "notes": "Confirmed duplicate / resend of source document RF-3001"
+  },
+  {
+    "fax_id": "FX-211",
+    "extracted_type": "Pre-routed Document",
+    "source_id_evidence": "Pre-existing portal record",
+    "action": "already_routed",
+    "selected_fields": {},
+    "verification": "not_applicable",
+    "errors_retries": 0,
+    "notes": "Pre-routed in portal before assessment"
+  },
+  {
+    "fax_id": "FX-212",
+    "extracted_type": "Mixed Packet",
+    "source_id_evidence": "Type: Mixed Packet; DocID: PkT-4012; Patient: Riley Morgan; Urgent: False; Mixed: True; Incomplete: False",
+    "action": "needs_review",
+    "selected_fields": {
+      "assignee_slug": "jordan",
+      "assignee_name": "Jordan Ellis - Manual Review",
+      "doc_type": "Needs Review",
+      "folder": "Review / Unclassified",
+      "notes": "Mixed packet containing multiple distinct document categories"
+    },
+    "verification": "verified_on_portal",
+    "errors_retries": 0,
+    "notes": "Mixed packet containing multiple distinct document categories"
+  }
+]
