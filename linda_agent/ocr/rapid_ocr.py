@@ -9,7 +9,7 @@ import numpy as np
 import pypdfium2
 from rapidocr_onnxruntime import RapidOCR
 
-from linda_agent.ocr.base import BaseOCREngine
+from linda_agent.ocr.base import BaseOCREngine, PageOCR
 
 logger = logging.getLogger(__name__)
 
@@ -20,12 +20,12 @@ class RapidOCREngine(BaseOCREngine):
     def __init__(self):
         self.ocr = RapidOCR()
 
-    def extract_text(self, pdf_path: Path) -> List[str]:
+    def extract_pages(self, pdf_path: Path) -> List[PageOCR]:
         if not pdf_path.exists():
             raise FileNotFoundError(f"PDF not found: {pdf_path}")
 
         doc = pypdfium2.PdfDocument(str(pdf_path))
-        pages_text: List[str] = []
+        pages: List[PageOCR] = []
 
         for page_idx in range(len(doc)):
             page = doc[page_idx]
@@ -35,15 +35,27 @@ class RapidOCREngine(BaseOCREngine):
 
             result, _ = self.ocr(img_arr)
             if not result:
-                pages_text.append("")
+                # A page with no recognised text is an evidence gap, not an empty success.
+                pages.append(PageOCR(text="", min_conf=0.0, mean_conf=0.0, line_count=0))
                 continue
 
             # result format is [ [bbox, text, score], ... ]
             lines = [r[1] for r in result]
+            scores = [float(r[2]) for r in result]
             full_text = "\n".join(lines)
-            
+
             # Normalize common full-width Unicode characters that may arise in OCR
             normalized_text = full_text.replace("\uff08", "(").replace("\uff09", ")")
-            pages_text.append(normalized_text)
+            pages.append(
+                PageOCR(
+                    text=normalized_text,
+                    min_conf=min(scores),
+                    mean_conf=sum(scores) / len(scores),
+                    line_count=len(lines),
+                )
+            )
 
-        return pages_text
+        return pages
+
+    def extract_text(self, pdf_path: Path) -> List[str]:
+        return [p.text for p in self.extract_pages(pdf_path)]

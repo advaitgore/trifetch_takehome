@@ -1,0 +1,11 @@
+{
+  "fax_id": "FX-204",
+  "pages": [
+    {
+      "text": "BLUERIDGEMEDICAL\nFAXTRANSMISSION/SCANNEDDOCUMENT\nPRIOR AUTHORIZATION REQUEST\nRequestID:PA-4004\nPatient:OoliverGrant\nDOB:06/21/1983\nOrdering provider:Dr.S.Raman\nServicerequested:MRI lumbarspine\nPayer:ExampleHealthPlan(synthetic)\nStatus:Documentationrequestedforpriorauthorization.\nPleasereviewcoveragerequirements.\nThis documentisnot anauthorization approval.\nCONFIDENTIAL-SYNTHETICTRAININGDOCUMENT\nTransmissionFX-204Page1of1",
+      "min_conf": 0.9546808719635009,
+      "mean_conf": 0.9795905422156899,
+      "line_count": 14
+    }
+  ]
+}

@@ -3,11 +3,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Tuple
+from dataclasses import dataclass, field
+from typing import List
 
 from playwright.async_api import Browser, BrowserContext, Page
 
 from linda_agent.browser.auth import login
+from linda_agent.browser.navigation import goto_authenticated
+from linda_agent.browser.portal_reader import MISMATCH, NOT_VERIFIED, VERIFIED, read_detail_routing, verify_saved
 from linda_agent.config import (
     MAX_RETRIES,
     NAVIGATION_TIMEOUT_MS,
@@ -18,6 +21,32 @@ from linda_agent.config import (
 from linda_agent.models import RoutingDecision
 
 logger = logging.getLogger(__name__)
+
+
+class ModalMismatchError(RuntimeError):
+    """The confirmation modal summarised different values than the ones we selected."""
+
+
+class RouteRejectedError(RuntimeError):
+    """The portal rejected the submission outright (400/404/...); retrying would not help."""
+
+    def __init__(self, fax_id: str, status: int):
+        super().__init__(f"Portal rejected route for {fax_id} with HTTP {status}")
+        self.status = status
+
+
+@dataclass
+class RouteOutcome:
+    """Result of one routing attempt sequence.
+
+    ``verification`` is a portal read-back status (verified_on_portal / verified_mismatch /
+    not_verified). ``deferred`` means the two-session rule (HTTP 409) blocked the submit and
+    the fax needs a fresh Session A download + Session B (no route was committed).
+    """
+    verification: str = NOT_VERIFIED
+    retries: int = 0
+    deferred: bool = False
+    events: List[str] = field(default_factory=list)
 
 
 class SessionBWorker:
@@ -40,8 +69,6 @@ class SessionBWorker:
         self.context = await self.browser.new_context()
         self.page = await self.context.new_page()
         self.page.set_default_navigation_timeout(NAVIGATION_TIMEOUT_MS)
-
-        # Authenticate fresh session
         await login(self.page)
         logger.info("Session B successfully authenticated.")
 
@@ -53,143 +80,130 @@ class SessionBWorker:
             self.page = None
             logger.info("Closed Browser Context B.")
 
-    async def verify_routing_completed(self, fax_id: str, expected_doc_type: str = "") -> bool:
-        """Checks whether the fax is committed as completed on the portal detail view and work queue."""
+    async def _cancel_modal(self) -> None:
         assert self.page is not None
-        detail_url = f"{PORTAL_BASE_URL}/faxes/{fax_id}"
-        logger.info(f"Inspecting detail view for completion: {detail_url}")
-        await self.page.goto(detail_url)
-        await self.page.wait_for_load_state("networkidle")
+        await self.page.click("#confirmation button:has-text('Back')")
 
-        content = await self.page.content()
-        if "Routing completed" in content or "This fax cannot be submitted again" in content:
-            logger.info(f"Verified 'Routing completed' notice on {detail_url}")
-            return True
+    async def _check_modal_summary(self, decision: RoutingDecision) -> None:
+        """Compare the confirmation modal against intent; raises ModalMismatchError (never `assert`)."""
+        assert self.page is not None and decision.selected_fields is not None
+        f = decision.selected_fields
+        got = {
+            "assignee": (await self.page.text_content("#summary-assignee") or "").strip(),
+            "doc_type": (await self.page.text_content("#summary-type") or "").strip(),
+            "folder": (await self.page.text_content("#summary-folder") or "").strip(),
+        }
+        want = {"assignee": f.assignee_name, "doc_type": f.doc_type, "folder": f.folder}
+        if got != want:
+            await self._cancel_modal()
+            raise ModalMismatchError(
+                f"Confirmation modal shows {got} but intended {want} for {decision.fax_id}"
+            )
 
-        # Fallback check on /work-queue (Routed Documents)
-        queue_url = f"{PORTAL_BASE_URL}/work-queue"
-        logger.info(f"Cross-checking work queue at {queue_url}")
-        await self.page.goto(queue_url)
-        await self.page.wait_for_load_state("networkidle")
+    async def route_and_confirm(self, decision: RoutingDecision) -> RouteOutcome:
+        """Routes one fax through the UI modal, driven by the HTTP status of the submit.
 
-        row = await self.page.query_selector(f"table[aria-label='Routed documents'] tr:has-text('{fax_id}')")
-        if row:
-            row_text = await row.text_content() or ""
-            logger.info(f"Verified fax {fax_id} in work queue: {row_text.strip()}")
-            return True
-
-        return False
-
-    async def route_and_confirm(self, decision: RoutingDecision) -> Tuple[str, int]:
-        """Routes a single fax using the interactive UI modal, handling synthetic faults.
-        
-        Returns:
-            Tuple[str, int]: (verification_status, retries_count)
+        POST /faxes/{id}/route outcomes:
+          303 -> ?notice_type=success|already : committed; verify saved values
+          303 -> /login                        : session expired; re-login, refill from scratch
+          503                                  : outcome UNKNOWN; read portal state, never blind-resubmit
+          409                                  : two-session rule; defer to a new Session A -> B cycle
+          403                                  : stale CSRF; reopen the form and retry
+          400 / 404 / other                    : rejected; raise RouteRejectedError
         """
         assert self.page is not None
-        fax_id = decision.fax_id
+        page = self.page
         fields = decision.selected_fields
-
+        fax_id = decision.fax_id
         if not fields:
             raise ValueError(f"No fields provided for routing fax {fax_id}")
 
-        route_url = f"{PORTAL_BASE_URL}/faxes/{fax_id}/route"
         detail_url = f"{PORTAL_BASE_URL}/faxes/{fax_id}"
-        retries = 0
-
-        # First, check if already routed before touching the form
-        if await self.verify_routing_completed(fax_id):
-            logger.info(f"Fax {fax_id} was already completed. Skipping routing submit.")
-            return "verified_on_portal", 0
+        route_url = f"{PORTAL_BASE_URL}/faxes/{fax_id}/route"
+        outcome = RouteOutcome()
 
         for attempt in range(1, MAX_RETRIES + 1):
+            # Always look before submitting: an earlier attempt or run may already have committed.
+            await goto_authenticated(page, detail_url, outcome.events)
+            if await read_detail_routing(page) is not None:
+                outcome.events.append(
+                    f"{fax_id} already routed in portal before submit (attempt {attempt}); verifying, not resubmitting"
+                )
+                logger.info(outcome.events[-1])
+                outcome.verification = await verify_saved(page, fax_id, fields, outcome.events)
+                return outcome
+
             logger.info(f"Opening route form for {fax_id} (attempt {attempt})...")
-            await self.page.goto(route_url)
-            await self.page.wait_for_load_state("networkidle")
+            await goto_authenticated(page, route_url, outcome.events)
 
-            # Check if redirected back to detail because it's already routed
-            if self.page.url == detail_url or "already" in self.page.url:
-                if await self.verify_routing_completed(fax_id):
-                    return "verified_on_portal", retries
-
-            # Populate the form using exact option slugs
             logger.info(
                 f"Populating route form: Assignee='{fields.assignee_slug}', "
                 f"Type='{fields.doc_type}', Folder='{fields.folder}'"
             )
-            await self.page.select_option("#assignee", value=fields.assignee_slug)
-            await self.page.select_option("#doc_type", value=fields.doc_type)
-            await self.page.select_option("#folder", value=fields.folder)
+            await page.select_option("#assignee", value=fields.assignee_slug)
+            await page.select_option("#doc_type", value=fields.doc_type)
+            await page.select_option("#folder", value=fields.folder)
             if fields.notes:
-                await self.page.fill("#notes", fields.notes)
+                await page.fill("#notes", fields.notes)
 
-            # Click 'Review Routing' to open confirmation modal
-            logger.info("Clicking 'Review Routing' button...")
-            await self.page.click("button:has-text('Review Routing')")
+            await page.click("button:has-text('Review Routing')")
+            await page.wait_for_selector("#confirmation.show", state="visible", timeout=5000)
+            await self._check_modal_summary(decision)
 
-            # Wait for modal backdrop to gain .show class
-            await self.page.wait_for_selector("#confirmation.show", state="visible", timeout=5000)
-
-            # Verify modal summary fields reflect selected options
-            summary_assignee = (await self.page.text_content("#summary-assignee") or "").strip()
-            summary_type = (await self.page.text_content("#summary-type") or "").strip()
-            summary_folder = (await self.page.text_content("#summary-folder") or "").strip()
-
-            assert summary_assignee == fields.assignee_name, (
-                f"Modal summary assignee '{summary_assignee}' does not match expected '{fields.assignee_name}'"
-            )
-            assert summary_type == fields.doc_type, (
-                f"Modal summary doc_type '{summary_type}' does not match expected '{fields.doc_type}'"
-            )
-            assert summary_folder == fields.folder, (
-                f"Modal summary folder '{summary_folder}' does not match expected '{fields.folder}'"
-            )
-
-            # Click 'OK - Submit Routing'
             logger.info("Clicking 'OK - Submit Routing' in modal...")
-            await self.page.click("#confirm-ok")
-            await self.page.wait_for_load_state("networkidle")
+            async with page.expect_response(
+                lambda r: r.request.method == "POST" and r.url.split("?")[0].endswith(f"/faxes/{fax_id}/route")
+            ) as resp_info:
+                await page.click("#confirm-ok")
+            resp = await resp_info.value
+            status = resp.status
+            location = resp.headers.get("location", "")
+            await page.wait_for_load_state("networkidle")
+            logger.info(f"Route POST for {fax_id} returned HTTP {status} {location}".rstrip())
 
-            # Check for Fault Mode 1: session_expire_on_route_once
-            if "/login" in self.page.url:
-                retries += 1
-                logger.warning(
-                    f"Session expired on routing submission for {fax_id} (session_expire_on_route_once). "
-                    "Re-authenticating and re-attempting..."
+            if 300 <= status < 400:
+                if "/login" in location:
+                    outcome.retries += 1
+                    outcome.events.append(
+                        f"Session expired during submit of {fax_id} (303 to /login); re-authenticated, refilling form"
+                    )
+                    logger.warning(outcome.events[-1])
+                    await login(page, in_place=True)
+                    continue
+                if "notice_type=already" in location:
+                    outcome.events.append(f"Portal reports {fax_id} was already routed; verifying saved values")
+                outcome.verification = await verify_saved(page, fax_id, fields, outcome.events)
+                return outcome
+
+            if status == 503:
+                outcome.retries += 1
+                outcome.events.append(
+                    f"HTTP 503 after submitting {fax_id}: outcome unknown, reading portal state before any retry"
                 )
-                await login(self.page)
-                # Re-loop will re-open route_url with fresh CSRF token and fill again
+                logger.warning(outcome.events[-1])
+                verification = await verify_saved(page, fax_id, fields, outcome.events)
+                if verification != NOT_VERIFIED:
+                    outcome.events.append(f"{fax_id}: route had committed despite the 503")
+                    outcome.verification = verification
+                    return outcome
+                outcome.events.append(f"{fax_id}: route not committed after the 503; safe to resubmit")
+                await asyncio.sleep(RETRY_DELAY_SECONDS)
                 continue
 
-            # Check for Fault Mode 2: route_commit_then_503_once
-            page_content = await self.page.content()
-            if "503" in page_content or "Routing unavailable" in page_content or "Gateway error" in page_content:
-                retries += 1
-                logger.warning(
-                    f"Received 503 response on submit for {fax_id} (route_commit_then_503_once). "
-                    "Do NOT retry POST blindly. Inspecting portal UI state to verify commit..."
+            if status == 409:
+                outcome.deferred = True
+                outcome.events.append(
+                    f"HTTP 409 for {fax_id}: portal has no earlier-session download on record; deferring to a new session cycle"
                 )
-                if await self.verify_routing_completed(fax_id, fields.doc_type):
-                    return "verified_on_portal", retries
-                else:
-                    logger.error(f"Route was not committed after 503 for {fax_id}. Retrying...")
-                    await asyncio.sleep(RETRY_DELAY_SECONDS)
-                    continue
+                logger.warning(outcome.events[-1])
+                return outcome
 
-            # Check for standard success notice
-            if "notice_type=success" in self.page.url or "Routing completed" in page_content:
-                logger.info(f"Route submission committed and verified for {fax_id}.")
-                return "verified_on_portal", retries
+            if status == 403:
+                outcome.retries += 1
+                outcome.events.append(f"HTTP 403 (stale form token) for {fax_id}; reopening the form")
+                logger.warning(outcome.events[-1])
+                continue
 
-            # If separate session was blocked (Two-session invariant failure)
-            if "Separate session required" in page_content:
-                raise RuntimeError(
-                    f"Portal rejected route for {fax_id}: Two-session rule blocked! "
-                    "Session B must be created after Session A download."
-                )
-
-            # If we reached here, verify on portal
-            if await self.verify_routing_completed(fax_id, fields.doc_type):
-                return "verified_on_portal", retries
+            raise RouteRejectedError(fax_id, status)
 
         raise RuntimeError(f"Failed to route and verify fax {fax_id} after {MAX_RETRIES} attempts.")

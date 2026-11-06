@@ -1,0 +1,11 @@
+{
+  "fax_id": "FX-210",
+  "pages": [
+    {
+      "text": "BAYVIEWFAMILYPRACTICE\nFAXTRANSMISSION/SCANNEDDOCUMENT\nFAX RESEND-REFERRALREQUEST\nOriginal DocumentID:RF-3001\nOriginal sentdate:11/03/2026\nPatient:ElenaHart\nDOB:04/16/1987\nReferring physician:Dr.MiraGomez\nRequested specialty:Neurology\nReason:Evaluationofrecurrentheadaches.\nPleasedisregardiforiginalwasreceived.\nThisisaretransmissionofthesamereferral.\nCONFIDENTIAL-SYNTHETICTRAININGDOCUMENT\nTransmissionFX-210Page1of1",
+      "min_conf": 0.9665054347780015,
+      "mean_conf": 0.9828924779652127,
+      "line_count": 14
+    }
+  ]
+}

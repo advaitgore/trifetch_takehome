@@ -1,0 +1,17 @@
+{
+  "fax_id": "FX-201",
+  "pages": [
+    {
+      "text": "BAYVIEWFAMILYPRACTICE\nFAXTRANSMISSION/ SCANNEDDOCUMENT\nFAXCOVERSHEET\nTo:HarborSpecialtyClinic-IntakeDepartment\nFrom:BayviewFamilyPractice\nNumber of pages (including cover):2\nDate:November3,2026\nRE:Documentsenclosedfornewconsultation\nConfidentialpatientpaperworkfollowsonthenextpage.\nPleaseroutethispacketaccordingtotheencloseddocument.\nCONFIDENTIAL-SYNTHETICTRAININGDOCUMENT\nTransmissionFX-201Page1of2",
+      "min_conf": 0.9351657339504786,
+      "mean_conf": 0.9833364712305356,
+      "line_count": 12
+    },
+    {
+      "text": "BAYVIEWFAMILYPRACTICE\nFAXTRANSMISSION/SCANNEDDOCUMENT\nNEWPATIENTREFERRALREQUEST\nDocumentID:RF-3001\nPatient:Elena Hart\nDateofBirth:04/16/1987\nReferringphysician:Dr.Mira Gomez\nRequestedservice:Neurologyconsultation\nReason:Evaluationofrecurrentheadaches.\nPriority:Routine\nPleasereviewattachedpatientdetails.\nCONFIDENTIAL-SYNTHETICTRAININGDOCUMENT\nTransmissionFX-201Page2of2",
+      "min_conf": 0.9751706984308031,
+      "mean_conf": 0.9871379432956295,
+      "line_count": 13
+    }
+  ]
+}

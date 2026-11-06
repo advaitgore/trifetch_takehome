@@ -1,19 +1,18 @@
-"""Unit tests for the SOP Classifier and Document Extractor."""
-import pytest
-from pathlib import Path
+"""Unit tests for the extractor, SOP classifier and evidence gates.
 
+Inputs are checked-in OCR fixtures (tests/fixtures/ocr), generated from the PDFs the agent
+itself downloaded through the portal UI. The tests never read the seeded portal data.
+"""
+import pytest
+
+from helpers import EXPECTED, PORTAL_FACTS, all_metadata, load_pages
 from linda_agent.logic.classifier import SOPClassifier
 from linda_agent.logic.duplicate_detector import DuplicateDetector
-from linda_agent.models import FaxMetadata
+from linda_agent.models import ExtractedDocument
+from linda_agent.ocr.base import PageOCR
 from linda_agent.ocr.extractor import DocumentExtractor
-from linda_agent.ocr.rapid_ocr import RapidOCREngine
 
-DATA_DIR = Path(__file__).resolve().parent.parent / "portal" / "data" / "faxes"
-
-
-@pytest.fixture(scope="module")
-def ocr_engine():
-    return RapidOCREngine()
+OCR_FAXES = [f for f in PORTAL_FACTS if f != "FX-211"]  # FX-211 is pre-routed: never downloaded
 
 
 @pytest.fixture(scope="module")
@@ -21,106 +20,149 @@ def extractor():
     return DocumentExtractor()
 
 
-def test_classify_all_twelve_faxes(ocr_engine, extractor):
-    """Verifies that all 12 faxes in the dataset classify deterministically per the SOP."""
-    metadata_list = [
-        FaxMetadata(fax_id="FX-201", sender="Bayview Family Practice", received_at="2026-11-03 08:02", pages=2, status="New"),
-        FaxMetadata(fax_id="FX-202", sender="Summit Diagnostic Labs", received_at="2026-11-03 08:06", pages=1, status="New"),
-        FaxMetadata(fax_id="FX-203", sender="Blue Ridge Medical", received_at="2026-11-03 08:12", pages=1, status="New"),
-        FaxMetadata(fax_id="FX-204", sender="Blue Ridge Medical", received_at="2026-11-03 08:12", pages=1, status="New"),
-        FaxMetadata(fax_id="FX-205", sender="Harbor Community Pharmacy", received_at="2026-11-03 08:19", pages=1, status="New"),
-        FaxMetadata(fax_id="FX-206", sender="Hillside Records Office", received_at="2026-11-03 08:25", pages=2, status="New"),
-        FaxMetadata(fax_id="FX-207", sender="Example Health Plan", received_at="2026-11-03 08:31", pages=1, status="New"),
-        FaxMetadata(fax_id="FX-208", sender="Summit Diagnostic Labs", received_at="2026-11-03 08:37", pages=1, status="New"),
-        FaxMetadata(fax_id="FX-209", sender="Unidentified Fax Number", received_at="2026-11-03 08:42", pages=1, status="New"),
-        FaxMetadata(fax_id="FX-210", sender="Bayview Family Practice", received_at="2026-11-03 08:49", pages=1, status="New"),
-        FaxMetadata(fax_id="FX-211", sender="Northbridge Imaging", received_at="2026-11-03 08:54", pages=1, status="Routed"),
-        FaxMetadata(fax_id="FX-212", sender="Central Care Associates", received_at="2026-11-03 09:03", pages=3, status="New"),
+@pytest.fixture(scope="module")
+def docs(extractor):
+    return {
+        f: extractor.extract(f, load_pages(f), pages_portal=PORTAL_FACTS[f]["pages"])
+        for f in OCR_FAXES
+    }
+
+
+def _page(text: str, conf: float = 0.97) -> PageOCR:
+    return PageOCR(text=text, min_conf=conf, mean_conf=conf, line_count=len(text.splitlines()))
+
+
+def test_classify_all_twelve_faxes(docs):
+    """All 12 faxes land on the ground-truth action / assignee / type / folder."""
+    report = DuplicateDetector.analyze(all_metadata(), docs)
+    assert set(report.confirmed) == {"FX-210"}
+    assert report.confirmed["FX-210"] == "FX-201"
+    assert not report.uncertain
+
+    for fax_id, (action, slug, dtype, folder) in EXPECTED.items():
+        if fax_id == "FX-211":
+            # Pre-routed: decided from portal status alone, no document needed.
+            stub = ExtractedDocument(fax_id=fax_id, doc_type_detected="Unknown")
+            decision = SOPClassifier.classify(stub, is_already_routed=True)
+        else:
+            decision = SOPClassifier.classify(docs[fax_id], is_duplicate=fax_id in report.confirmed)
+        assert decision.action == action, fax_id
+        if slug:
+            f = decision.selected_fields
+            assert (f.assignee_slug, f.doc_type, f.folder) == (slug, dtype, folder), fax_id
+
+
+def test_all_twelve_have_clean_evidence(docs):
+    """The gates must not flip any real fax: no uncertainty on any of the 11 OCR'd faxes."""
+    for fax_id, doc in docs.items():
+        assert doc.uncertainty == [], f"{fax_id}: {doc.uncertainty}"
+        assert doc.pages_ocr == PORTAL_FACTS[fax_id]["pages"]
+
+
+# ---------------------------------------------------------------- urgency (Task 5)
+def test_fx202_note_has_flag_and_reported_value(docs):
+    d = SOPClassifier.classify(docs["FX-202"])
+    assert d.action == "needs_review"
+    note = d.selected_fields.notes
+    assert "CRITICAL RESULT-CALLING PROVIDER" in note
+    assert "Potassium 6.3 mmol/L" in note
+    assert "no clinical action" in note
+    # contained duplicate removed: a bare CRITICAL inside the longer phrase is not listed twice
+    assert "; CRITICAL" not in note.replace("CRITICAL RESULT-CALLING PROVIDER", "")
+    assert len(note) <= 1000
+
+
+def test_fx208_negated_urgency_is_not_urgent(docs):
+    assert docs["FX-208"].urgent_flags == []
+    assert SOPClassifier.classify(docs["FX-208"]).action == "routed"
+
+
+def test_negating_cover_sheet_does_not_hide_critical_page(extractor):
+    """'No urgent flag' on one page must never suppress a critical flag on another."""
+    pages = [
+        _page("CENTRALCARE\nFAXCOVER\nNourgentflagprovided"),
+        _page("LABORATORYRESULTS\nDocumentreference:LAB-9\nPatient:Ann Poe\nResult:Potassium6.8mmol/L\nCRITICAL RESULT-CALLING PROVIDER"),
     ]
+    doc = extractor.extract("FX-900", pages, pages_portal=2)
+    assert doc.urgent_flags, "critical flag on page 2 must be detected"
+    assert any("Conflicting urgency" in u for u in doc.uncertainty)
+    d = SOPClassifier.classify(doc)
+    assert d.action == "needs_review"
+    assert "Conflicting" in d.selected_fields.notes
 
-    extracted_docs = {}
-    for meta in metadata_list:
-        pdf_path = DATA_DIR / f"{meta.fax_id}.pdf"
-        pages_text = ocr_engine.extract_text(pdf_path)
-        doc = extractor.extract(meta.fax_id, pages_text)
-        extracted_docs[meta.fax_id] = doc
 
-    duplicates = DuplicateDetector.identify_duplicates(metadata_list, extracted_docs)
-    assert "FX-210" in duplicates, "FX-210 must be recognized as a duplicate resend of RF-3001"
-    assert "FX-201" not in duplicates, "FX-201 is the original and must not be marked duplicate"
+def test_value_capture_failure_never_changes_routing(extractor):
+    pages = [_page("LABORATORYRESULTS\nDocumentreference:LAB-9\nPatient:Ann Poe\nCRITICAL RESULT-CALLING PROVIDER")]
+    doc = extractor.extract("FX-901", pages, pages_portal=1)
+    assert doc.urgent_value is None
+    d = SOPClassifier.classify(doc)
+    assert d.action == "needs_review"
+    assert "CRITICAL RESULT-CALLING PROVIDER" in d.selected_fields.notes
+    assert "Reported value" not in d.selected_fields.notes
 
-    # 1. FX-201: Routine Referral
-    d201 = SOPClassifier.classify(extracted_docs["FX-201"], is_duplicate=False)
-    assert d201.action == "routed"
-    assert d201.selected_fields.assignee_slug == "olivia"
-    assert d201.selected_fields.doc_type == "Referral"
-    assert d201.selected_fields.folder == "Referrals / New"
 
-    # 2. FX-202: Urgent / Critical Lab Result
-    d202 = SOPClassifier.classify(extracted_docs["FX-202"], is_duplicate=False)
-    assert d202.action == "needs_review"
-    assert d202.selected_fields.assignee_slug == "jordan"
-    assert d202.selected_fields.doc_type == "Needs Review"
-    assert "CRITICAL" in d202.selected_fields.notes
+def test_ordinary_prose_does_not_trigger_bare_tokens(extractor):
+    pages = [_page("LABORATORYREPORT\nReportID:LAB-5\nPatient:Bo Li\nStatus:Final\nCritical thinking not required. Statement of fact.")]
+    assert extractor.extract("FX-902", pages, pages_portal=1).urgent_flags == []
 
-    # 3. FX-203: Diagnostic Imaging
-    d203 = SOPClassifier.classify(extracted_docs["FX-203"], is_duplicate=False)
-    assert d203.action == "routed"
-    assert d203.selected_fields.assignee_slug == "noah"
-    assert d203.selected_fields.doc_type == "Imaging Report"
-    assert d203.selected_fields.folder == "Clinical / Imaging"
 
-    # 4. FX-204: Prior Authorization
-    d204 = SOPClassifier.classify(extracted_docs["FX-204"], is_duplicate=False)
-    assert d204.action == "routed"
-    assert d204.selected_fields.assignee_slug == "ethan"
-    assert d204.selected_fields.doc_type == "Prior Authorization"
-    assert d204.selected_fields.folder == "Authorizations / Pending"
+# ---------------------------------------------------------------- incomplete / ids (Task 6)
+def test_fx209_incomplete_with_transmission_id(docs):
+    assert docs["FX-209"].is_incomplete
+    assert docs["FX-209"].source_doc_id == "U-4009"
+    assert docs["FX-209"].patient_name is None
+    assert SOPClassifier.classify(docs["FX-209"]).action == "needs_review"
 
-    # 5. FX-205: Refill Request
-    d205 = SOPClassifier.classify(extracted_docs["FX-205"], is_duplicate=False)
-    assert d205.action == "routed"
-    assert d205.selected_fields.assignee_slug == "ava"
-    assert d205.selected_fields.doc_type == "Refill Request"
-    assert d205.selected_fields.folder == "Nursing / Medication"
 
-    # 6. FX-206: Records Request
-    d206 = SOPClassifier.classify(extracted_docs["FX-206"], is_duplicate=False)
-    assert d206.action == "routed"
-    assert d206.selected_fields.assignee_slug == "mia"
-    assert d206.selected_fields.doc_type == "Records Request"
-    assert d206.selected_fields.folder == "Records / Requests"
+def test_word_unknown_in_prose_is_not_incomplete(extractor):
+    pages = [_page("LABORATORYREPORT\nReportID:LAB-7\nPatient:Cy Dee\nCause of anemia unknown to the patient.")]
+    doc = extractor.extract("FX-903", pages, pages_portal=1)
+    assert not doc.is_incomplete
+    assert SOPClassifier.classify(doc).action == "routed"
 
-    # 7. FX-207: EOB
-    d207 = SOPClassifier.classify(extracted_docs["FX-207"], is_duplicate=False)
-    assert d207.action == "routed"
-    assert d207.selected_fields.assignee_slug == "liam"
-    assert d207.selected_fields.doc_type == "EOB"
-    assert d207.selected_fields.folder == "Billing / EOBs"
 
-    # 8. FX-208: Routine Lab Report (No urgent flag)
-    d208 = SOPClassifier.classify(extracted_docs["FX-208"], is_duplicate=False)
-    assert d208.action == "routed"
-    assert d208.selected_fields.assignee_slug == "noah"
-    assert d208.selected_fields.doc_type == "Lab Result"
-    assert d208.selected_fields.folder == "Clinical / Labs"
+def test_fallback_id_never_returns_the_fax_id(extractor):
+    doc = extractor.extract("FX-904", [_page("PRESCRIPTIONREFILLREQUEST\nTransmissionFX-904Page1of1\nRef RX-4005 below")], pages_portal=1)
+    assert doc.source_doc_id == "RX-4005"
 
-    # 9. FX-209: Incomplete Document
-    d209 = SOPClassifier.classify(extracted_docs["FX-209"], is_duplicate=False)
-    assert d209.action == "needs_review"
-    assert d209.selected_fields.assignee_slug == "jordan"
-    assert d209.selected_fields.doc_type == "Needs Review"
 
-    # 10. FX-210: Duplicate Resend
-    d210 = SOPClassifier.classify(extracted_docs["FX-210"], is_duplicate=True)
-    assert d210.action == "skipped_duplicate"
+def test_fx212_note_names_its_enclosures(docs):
+    d = SOPClassifier.classify(docs["FX-212"])
+    assert d.action == "needs_review"
+    note = d.selected_fields.notes
+    assert "LAB-4012A" in note and "IMG-4012B" in note and "PkT-4012" in note
 
-    # 11. FX-211: Already Routed
-    d211 = SOPClassifier.classify(extracted_docs["FX-211"], is_already_routed=True)
-    assert d211.action == "already_routed"
 
-    # 12. FX-212: Mixed Packet
-    d212 = SOPClassifier.classify(extracted_docs["FX-212"], is_duplicate=False)
-    assert d212.action == "needs_review"
-    assert d212.selected_fields.assignee_slug == "jordan"
-    assert d212.selected_fields.doc_type == "Needs Review"
+# ---------------------------------------------------------------- evidence gates (Task 7)
+def test_page_count_mismatch_goes_to_review(extractor):
+    pages = load_pages("FX-212")[:2]  # OCR only read 2 of the 3 portal pages
+    doc = extractor.extract("FX-212", pages, pages_portal=3)
+    assert any("Page count mismatch" in u for u in doc.uncertainty)
+
+    clean = extractor.extract("FX-206", load_pages("FX-206")[:1], pages_portal=2)
+    d = SOPClassifier.classify(clean)
+    assert d.action == "needs_review"
+    assert "Page count mismatch" in d.selected_fields.notes
+
+
+def test_low_confidence_page_goes_to_review(extractor):
+    pages = [PageOCR(text=p.text, min_conf=0.30, mean_conf=0.55, line_count=p.line_count)
+             for p in load_pages("FX-203")]
+    doc = extractor.extract("FX-203", pages, pages_portal=1)
+    assert any("low OCR confidence" in u for u in doc.uncertainty)
+    assert SOPClassifier.classify(doc).action == "needs_review"
+
+
+def test_empty_page_goes_to_review(extractor):
+    pages = load_pages("FX-203") + [PageOCR(text="", min_conf=0.0, mean_conf=0.0, line_count=0)]
+    doc = extractor.extract("FX-203", pages, pages_portal=2)
+    assert any("no text recognised" in u for u in doc.uncertainty)
+    assert SOPClassifier.classify(doc).action == "needs_review"
+
+
+def test_measured_confidences_sit_well_above_the_floors(docs):
+    """Documents the threshold's basis: observed minimum is far above the configured floors."""
+    from linda_agent.config import OCR_MIN_LINE_CONFIDENCE, OCR_MIN_MEAN_CONFIDENCE
+
+    assert min(d.ocr_min_confidence for d in docs.values()) > OCR_MIN_LINE_CONFIDENCE + 0.25
+    assert min(d.ocr_mean_confidence for d in docs.values()) > OCR_MIN_MEAN_CONFIDENCE + 0.08

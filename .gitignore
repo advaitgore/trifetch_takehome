@@ -28,3 +28,4 @@ checkpoints/*.tmp
 
 # Runtime logs
 *.log
+checkpoints/ocr_cache/

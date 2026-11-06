@@ -1,0 +1,11 @@
+{
+  "fax_id": "FX-207",
+  "pages": [
+    {
+      "text": "EXAMPLEHEALTHPLAN\nFAXTRANSMISSION / SCANNED DOCUMENT\nEXPLANATION OF BENEFITS(EOB)\nRemittanceID:EOB-4007\nMember:Jordan Clark\nServicedate:10/21/2026\nClaimreference:C-10778\nBilledamount:$320.00\nAllowedamount:$244.00\nPlanpaid:$195.20\nPatientresponsibility:$48.80\nThisisnotabilltothepatient.\nCONFIDENTIAL-SYNTHETICTRAININGDOCUMENT\nTransmissionFX-207Page1of1",
+      "min_conf": 0.9492663592100143,
+      "mean_conf": 0.9787705297359875,
+      "line_count": 14
+    }
+  ]
+}

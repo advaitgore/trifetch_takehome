@@ -1,0 +1,11 @@
+{
+  "fax_id": "FX-203",
+  "pages": [
+    {
+      "text": "BLUERIDGE RADIOLOGY\nFAXTRANSMISSION / SCANNED DOCUMENT\nDIAGNOSTICIMAGINGREPORT\nAccessionNumber:IMG-4003\nPatient:Naomi Lee\nDOB:12/11/1990\nStudy:MRI cervical spinewithoutcontrast\nStudydate:11/01/2026\nFindings:Multilevel degenerative change.\nImpression:Seefullradiologyfindings.\nInterpretingradiologist:Dr.J.Webb\nFINALRADIOLOGYREPORT\nCONFIDENTIAL-SYNTHETICTRAININGDOCUMENT\nTransmissionFX-203Page1of1",
+      "min_conf": 0.9579447700696833,
+      "mean_conf": 0.9788762460847195,
+      "line_count": 14
+    }
+  ]
+}

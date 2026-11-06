@@ -1,159 +1,135 @@
-# TriFetch Linda Mini — Autonomous Fax Routing Browser Agent
+# TriFetch Linda Mini: Fax Routing Browser Agent
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![Playwright](https://img.shields.io/badge/playwright-tested-green.svg)](https://playwright.dev/)
-[![Tests](https://img.shields.io/badge/tests-6%20passed-brightgreen.svg)]()
+A Playwright agent that processes the 12 inbound faxes in the local "Linda Mini" sandbox. It
+downloads each scanned (image-only) PDF through the portal UI, OCRs every page locally, applies
+the routing SOP and its exception rules, submits assignments from a **second, separate login
+session**, and verifies what the portal actually saved. It survives the portal's three injected
+faults and can be stopped and restarted without duplicating or losing work.
 
-An autonomous, resilient browser-use agent designed to automate inbound healthcare fax triage within the fictional **"Linda Mini"** clinical sandbox. The agent processes scanned image-only PDFs, applies clinical SOP routing policies and safety exception rules, enforces strict two-session authentication invariants, and autonomously recovers from network, session, and commit faults.
+Design details, failure handling and known gaps: [ARCHITECTURE.md](ARCHITECTURE.md).
 
----
+## Quickstart
 
-## 1. Quickstart
-
-### Prerequisites
-* Python 3.11+
-* Chrome / Chromium (Playwright will install automatically)
-
-### Setup & Run in 3 Commands
+Requires Python 3.11+.
 
 ```bash
-# 1. Clone repository
 git clone https://github.com/advaitgore/trifetch_takehome.git
 cd trifetch_takehome
 
-# 2. Install dependencies & Playwright browsers
 pip install -r requirements.txt
 playwright install chromium
 
-# 3. Start the local portal in one terminal
+# terminal 1: the sandbox portal (http://127.0.0.1:8000)
 python run_portal.py
 
-# 4. In a second terminal, run the agent
+# terminal 2: the agent
 python -m linda_agent.cli run
 ```
 
-*To run with the browser visible (headed mode):*
-```bash
-python -m linda_agent.cli run --headed
-```
+`python run_agent.py` is equivalent. Add `--headed` to watch the browser, and
+`--reset-checkpoint` to discard saved progress.
 
----
+For a fresh sandbox between runs: stop the portal, run `python portal/reset_sandbox.py`
+(deletes only `portal/portal.sqlite3`), delete `checkpoints/progress_state.json`, and start again.
+A checkpoint that outlives a portal reset is detected and reprocessed, but starting clean is simplest.
 
-## 2. End-to-End Execution Results
-
-On running against the 12 inbound faxes, the agent produces `results.json` and `results.csv`:
-
-| Fax ID | Extracted Document Type | Clinical SOP Action | Portal Verification | Retries | Clinical / SOP Rationale |
-|---|---|---|---|---|---|
-| **FX-201** | Referral | `routed` | `verified_on_portal` | 0 | Earliest original referral (RF-3001) $\rightarrow$ Olivia Chen / Referrals / New |
-| **FX-202** | Lab Result | `needs_review` | `verified_on_portal` | 0 | **Critical Alert**: Potassium 6.3 mmol/L $\rightarrow$ Jordan Ellis (Note: alert flag recorded) |
-| **FX-203** | Imaging Report | `routed` | `verified_on_portal` | 0 | Routine cervical spine MRI $\rightarrow$ Noah Patel / Clinical / Imaging |
-| **FX-204** | Prior Authorization | `routed` | `verified_on_portal` | 0 | Lumbar spine MRI PA $\rightarrow$ Ethan Brooks / Authorizations / Pending |
-| **FX-205** | Refill Request | `routed` | `verified_on_portal` | 0 | Lisinopril 10mg renewal $\rightarrow$ Ava Wilson / Nursing / Medication |
-| **FX-206** | Records Request | `routed` | `verified_on_portal` | 0 | Medical records & release $\rightarrow$ Mia Gomez / Records / Requests |
-| **FX-207** | EOB | `routed` | `verified_on_portal` | 0 | Insurer remittance (EOB-4007) $\rightarrow$ Liam Rivera / Billing / EOBs |
-| **FX-208** | Lab Result | `routed` | `verified_on_portal` | 0 | Routine CBC panel ("No urgent flag") $\rightarrow$ Noah Patel / Clinical / Labs |
-| **FX-209** | Incomplete Document | `needs_review` | `verified_on_portal` | 0 | **Incomplete Packet**: Unknown sender, partial pages $\rightarrow$ Jordan Ellis |
-| **FX-210** | Fax Resend | `skipped_duplicate` | `skipped` | 0 | **Confirmed Resend**: RF-3001 matches earlier FX-201 $\rightarrow$ Skipped in UI |
-| **FX-211** | Pre-routed Document | `already_routed` | `not_applicable` | 0 | **Pre-routed**: Pre-assigned by clinic staff $\rightarrow$ Preserved without alteration |
-| **FX-212** | Mixed Packet | `needs_review` | `verified_on_portal` | 0 | **Mixed Packet**: Contains both Lab (`LAB-4012A`) & Imaging (`IMG-4012B`) $\rightarrow$ Jordan Ellis |
-
----
-
-## 3. Key Architectural Innovations
-
-### 1. The Two-Session Authentication Invariant
-The sandbox backend (`app.py:432-437`) enforces:
-$$\text{downloaded\_at} < \text{session\_B.created\_at} \quad\text{and}\quad \text{session\_A.id} \neq \text{session\_B.id}$$
-* **Session A (Context A)**: Discovers inbox items and downloads unrouted PDFs to `./downloads/`. Context A is then completely closed.
-* **Temporal Barrier**: Enforces a $\ge 1.2\text{s}$ pause to guarantee clock resolution.
-* **Session B (Context B)**: Launches a fresh browser context with distinct cookies, logs in anew, and commits assignments.
-
-### 2. Zero-Setup Local OCR (`RapidOCR` + `pypdfium2`)
-* Pure Python & ONNX Runtime bundled models.
-* **No external C++ binary installers needed** (unlike PyTesseract, which fails on Windows if `tesseract.exe` is missing from system PATH).
-* Extracts text with ~99% accuracy across all test faxes.
-* Modular adapters for `pytesseract` and multimodal LLM vision (Gemini / OpenAI / Anthropic) are included if configured.
-
-### 3. Global Arrival Order & Duplicate Resends
-The portal inbox is sorted in **descending order** (`received_at DESC`). `FX-210` (Bayview resend at 08:49) appears on Page 1, while `FX-201` (Bayview original at 08:02) appears on Page 2.
-* An agent routing inline as it paginates would incorrectly route the resend first.
-* **Solution**: The agent decouples discovery from routing. It indexes and OCRs all faxes, sorts by `received_at` **ASCENDING**, routes the original (`FX-201`), and flags `FX-210` as a skipped duplicate.
-
-### 4. Interactive Modal & Dropdown Slug Alignment
-* Dropdown options carry slug values (`"olivia"`, `"noah"`, `"ethan"`, etc.). Submitting display labels causes HTTP 400. The agent maps slugs for form submission and verifies display text inside the confirmation modal (`#confirmation.show`).
-
----
-
-## 4. Resilience & Simulated Fault Recovery
-
-The agent autonomously recovers from all three sandbox fault injection modes:
-
-1. **`download_503_once`**: Detects transient 503 error HTML, applies exponential backoff, and re-clicks download. Validates `%PDF-` header.
-2. **`session_expire_on_route_once`**: Detects session expiry on submit, re-authenticates at `/login`, re-navigates, re-populates form, and re-submits.
-3. **`route_commit_then_503_once`**: Detects post-commit 503, avoids redundant retry, inspects detail view and `/work-queue`, and verifies commit status.
-
----
-
-## 5. Running the Automated Test Suite
-
-Run all automated unit and integration tests covering the SOP classifier, the two-session invariant, and all three fault recovery modes:
+Fault injection (restart the portal with one of these):
 
 ```bash
-# Run the complete test suite
-pytest tests/ -v
+python run_portal.py --fault download_503_once
+python run_portal.py --fault session_expire_on_route_once
+python run_portal.py --fault route_commit_then_503_once
 ```
 
-*Run specific test suites:*
+Outputs: `results.json` and `results.csv` (one record per fax), `checkpoints/progress_state.json`.
+
+## Result on the sandbox
+
+Produced by the run committed in this repo (real RapidOCR, fresh portal DB, no faults).
+All 12 match the brief's ground truth; every routed fax was read back from the portal and
+the work queue holds exactly one row per routed fax.
+
+| Fax | Detected | Action | Assignee / Type / Folder | Why |
+|---|---|---|---|---|
+| FX-201 | Referral | routed | olivia / Referral / Referrals / New | earliest original of RF-3001 |
+| FX-202 | Lab Result | needs_review | jordan / Needs Review / Review / Unclassified | critical flag; note carries the flag and `Potassium 6.3 mmol/L` |
+| FX-203 | Imaging Report | routed | noah / Imaging Report / Clinical / Imaging | routine |
+| FX-204 | Prior Authorization | routed | ethan / Prior Authorization / Authorizations / Pending | same sender and time as FX-203; matched by fax ID |
+| FX-205 | Refill Request | routed | ava / Refill Request / Nursing / Medication | routine |
+| FX-206 | Records Request | routed | mia / Records Request / Records / Requests | routine |
+| FX-207 | EOB | routed | liam / EOB / Billing / EOBs | routine |
+| FX-208 | Lab Result | routed | noah / Lab Result / Clinical / Labs | "no urgent flag" is a negation, not a flag |
+| FX-209 | Incomplete Document | needs_review | jordan / Needs Review / Review / Unclassified | unknown sender, incomplete page (`U-4009`) |
+| FX-210 | Fax Resend | skipped_duplicate | none | resend of RF-3001 from FX-201; never submitted |
+| FX-211 | pre-routed | already_routed | none | already in Routed Documents; left untouched |
+| FX-212 | Mixed Packet | needs_review | jordan / Needs Review / Review / Unclassified | lab (`LAB-4012A`) plus imaging (`IMG-4012B`) in one packet |
+
+## How the hard parts are handled
+
+* **Two sessions.** The portal only accepts a route if the fax was downloaded in an earlier,
+  different login session. Session A downloads and closes; after a 1.2 s barrier, Session B opens
+  as a new browser context with a new login and submits.
+* **Resend before original.** The inbox is newest first, so FX-210 appears before FX-201. The agent
+  indexes and OCRs everything, then decides in ascending arrival order. A resend is skipped only
+  with a shared source-document ID **and** corroboration (resend marker or matching patient);
+  otherwise it goes to Manual Review.
+* **Dropdown slugs.** Option values are slugs (`olivia`, `noah`, ...). The confirmation modal is
+  waited on and its summary is compared with the intended values before submitting.
+* **Faults.** Branching is on HTTP status. `download_503_once`: backoff and retry.
+  `session_expire_on_route_once`: re-login and refill the form from scratch.
+  `route_commit_then_503_once`: read the portal state first and never resubmit blindly.
+  If the portal says the two-session rule is unmet (409), the agent runs one bounded extra
+  download-then-route cycle.
+* **Verification.** After a submit the agent reads the fax's detail page and the Routed Documents
+  table and compares the saved assignee, type and folder with the intent. It does not trust the HTTP
+  response alone. The routing note is not displayed by the portal, so it cannot be read back.
+* **Restart safety.** Progress, extraction evidence and a pre-submit intent are checkpointed.
+  Failures stay failures and are retried. On startup the checkpoint is reconciled against the portal.
+
+## Tests
+
 ```bash
-# 1. SOP Classifier & all 12 fax rules
-pytest tests/test_classifier.py -v
-
-# 2. Strict Two-Session Invariant
-pytest tests/test_two_session.py -v
-
-# 3. Fault injection & self-healing recovery
-pytest tests/test_fault_recovery.py -v
+pytest tests -q
 ```
 
----
+45 tests, about 3.5 minutes (most of that is real browser runs). `pytest tests/test_classifier.py
+tests/test_duplicate_detector.py tests/test_state.py -q` runs the logic suite in about a second.
 
-## 6. Repository Structure
+Tests run against an isolated portal (temp DB, temp work directory, free port) and never touch
+`portal/portal.sqlite3` or this repo's `downloads/`, `checkpoints/` or `results.*`. The classifier
+tests use checked-in OCR fixtures in `tests/fixtures/ocr` (regenerate with
+`python tests/fixtures/regenerate.py` after a run).
+
+## Layout
 
 ```
-trifetch_takehome/
-├── linda_agent/
-│   ├── browser/
-│   │   ├── auth.py             # Login, re-auth, session status checks
-│   │   ├── session_a.py        # Queue pagination & PDF acquisition
-│   │   └── session_b.py        # Modal routing, verification & fault handlers
-│   ├── ocr/
-│   │   ├── base.py             # Abstract OCR interface
-│   │   ├── rapid_ocr.py        # Local offline ONNX OCR engine
-│   │   ├── tesseract_ocr.py    # PyTesseract fallback adapter
-│   │   ├── llm_vision.py       # Multimodal LLM vision adapter
-│   │   └── extractor.py        # Document IDs, patient details & flag parser
-│   ├── logic/
-│   │   ├── classifier.py       # Deterministic SOP & safety rules
-│   │   └── duplicate_detector.py # Global arrival duplicate filter
-│   ├── agent.py                # Main orchestrator & audit exporter
-│   ├── config.py               # Timeouts, endpoints & paths
-│   ├── models.py               # Pydantic schemas for all entities
-│   └── state.py                # Durable atomic checkpoint manager
-├── portal/                     # Local sandbox portal (FastAPI + SQLite)
-│   ├── app.py
-│   ├── reset_sandbox.py
-│   └── data/faxes/
-├── tests/
-│   ├── test_classifier.py      # Tests for all 12 faxes & edge cases
-│   ├── test_fault_recovery.py  # End-to-end tests for all 3 fault modes
-│   └── test_two_session.py     # Server two-session contract validation
-├── checkpoints/                # progress_state.json: resumable per-fax state (runtime)
-├── results.json                # Final per-fax audit artifact
-├── results.csv                 # Tabular audit artifact
-├── run_agent.py                # Single-command agent launcher
-├── run_portal.py               # Portal server launcher with fault injection
-├── requirements.txt            # Python dependencies
-├── ARCHITECTURE.md             # Comprehensive technical notes & tradeoffs
-└── README.md                   # System documentation
+linda_agent/
+  agent.py              orchestrator: cycles, reconciliation, intents, export
+  cli.py                python -m linda_agent.cli run
+  config.py             paths, timeouts, confidence floors (env-overridable)
+  models.py             pydantic models (FaxResult also carries extraction evidence)
+  state.py              atomic checkpoint + pre-submit intents
+  browser/
+    auth.py             login (including in-place re-login)
+    navigation.py       goto_authenticated: survives session loss on any navigation
+    portal_reader.py    parses saved routes from the detail page and work queue
+    session_a.py        inbox discovery, work-queue read, status-driven download
+    session_b.py        modal handling, status-driven submit, verification
+  ocr/
+    rapid_ocr.py        offline ONNX OCR with per-page confidence
+    cache.py            sha256-keyed OCR cache
+    extractor.py        IDs, patient, urgency, mixed/incomplete, evidence gates
+    tesseract_ocr.py    optional PyTesseract adapter
+    llm_vision.py       optional multimodal adapter (not used in the committed run)
+  logic/
+    classifier.py       deterministic SOP + collected exception reasons
+    duplicate_detector.py  arrival-order duplicate analysis with corroboration
+portal/                 the provided sandbox
+tests/                  45 tests + OCR fixtures
+results.json, results.csv
 ```
+
+## Disclosure
+
+OCR is local and offline (RapidOCR with ONNX Runtime, pypdfium2 for rendering). No external AI
+service, API key or paid model is used. The committed run does not use the optional vision adapter.

@@ -1,0 +1,23 @@
+{
+  "fax_id": "FX-212",
+  "pages": [
+    {
+      "text": "CENTRALCAREASSOCIATES\nFAXTRANSMISSION/SCANNEDDOCUMENT\nFAXCOVER-MULTIPLEENCLOSURES\nTransmissionreference:PkT-4012\nPatient:Riley Morgan\nContainsmultiple documentswith differentpurposes.\nPage2:Laboratoryresult\nPage3:Imaginginterpretation\nPleasereviewentirepacketbeforefiling.\nCONFIDENTIAL-SYNTHETICTRAININGDOCUMENT\nTransmissionFX-212Page1of3",
+      "min_conf": 0.967605330546697,
+      "mean_conf": 0.9832875973545633,
+      "line_count": 11
+    },
+    {
+      "text": "CENTRALCARE ASSOCIATES\nFAX TRANSMISSION / SCANNED DOCUMENT\nLABORATORYREPORT\nDocumentnumber:LAB-4012A\nPatient:RileyMorgan\nDOB:03/18/1979\nPanel:Thyroid function\nFinal report,routine\nThispage is a laboratoryresult.\nCONFIDENTIAL-SYNTHETICTRAININGDOCUMENT\nTransmissionFX-212Page2of3",
+      "min_conf": 0.9428398966789245,
+      "mean_conf": 0.9751438694952252,
+      "line_count": 11
+    },
+    {
+      "text": "CENTRALCAREASSOCIATES\nFAXTRANSMISSION/SCANNEDDOCUMENT\nRADIOLOGY REPORT\nDocumentnumber:IMG-4012B\nPatient:Riley Morgan\nDOB:03/18/1979\nExam:Ultrasoundthyroid\nImpression:Pleaseseeradiologistnarrative.\nThispage is an imaging report.\nCONFIDENTIAL-SYNTHETICTRAININGDOCUMENT\nTransmissionFX-212Page3of3",
+      "min_conf": 0.9491420845190685,
+      "mean_conf": 0.9779409140873461,
+      "line_count": 11
+    }
+  ]
+}

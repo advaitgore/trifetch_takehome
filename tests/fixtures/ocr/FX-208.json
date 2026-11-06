@@ -1,0 +1,11 @@
+{
+  "fax_id": "FX-208",
+  "pages": [
+    {
+      "text": "SUMMITDIAGNOSTICLABS\nFAXTRANSMISSION/SCANNEDDOCUMENT\nLABORATORYREPORT\nReportID:LAB-4008\nPatient:Talia Nguyen\nDOB:01/27/1993\nOrdering physician:Dr.T.Howe\nCollectiondate:11/02/2026\nPanel:CBCwithdifferential\nStatus:Final\nResults:Seevaluesonfollowingtable\nNourgentflagprovided onthisreport.\nCONFIDENTIAL-SYNTHETICTRAININGDOCUMENT\nTransmissionFX-208Page1of1",
+      "min_conf": 0.9700286430971963,
+      "mean_conf": 0.9861307697314581,
+      "line_count": 14
+    }
+  ]
+}

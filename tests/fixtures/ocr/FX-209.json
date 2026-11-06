@@ -1,0 +1,11 @@
+{
+  "fax_id": "FX-209",
+  "pages": [
+    {
+      "text": "UNKNOWNSENDER\nFAXTRANSMISSION/ SCANNED DOCUMENT\nFAXDOCUMENT\nTransmissionID:U-4009\nSubject:Patientpaperwork\nAttachedpage appearsincomplete.\nPleaseseemissingcontinuationpage.\nNoreadabledocumentcategoryordestinationfound.\n[SCANCUTOFF]\nCONFIDENTIAL-SYNTHETICTRAININGDOCUMENT\nTransmissionFX-209Page1of1",
+      "min_conf": 0.9594254444042841,
+      "mean_conf": 0.9831323519108587,
+      "line_count": 11
+    }
+  ]
+}

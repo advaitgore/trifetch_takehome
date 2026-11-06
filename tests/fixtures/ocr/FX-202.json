@@ -1,0 +1,11 @@
+{
+  "fax_id": "FX-202",
+  "pages": [
+    {
+      "text": "SUMMITDIAGNOSTICLABS\nFAXTRANSMISSION/SCANNEDDOCUMENT\nLABORATORYRESULTS\nDocumentreference:LAB-8302\nPatient:Marcus Bell\nDOB:09/03/1974\nOrdering clinician:Dr.Anika Das\nCollectiondate:11/02/2026\nPanel:Basicmetabolicpanel\nResult:Potassium6.3mmol/L\nCRITICAL RESULT-CALLING PROVIDER\nCriticalvaluenotificationdocumentedat07:55.\nForimmediatereviewbyauthorizedclinicalpersonnel.\nCONFIDENTIAL-SYNTHETICTRAININGDOCUMENT\nTransmissionFX-202Page1of1",
+      "min_conf": 0.9642737098038197,
+      "mean_conf": 0.9853515081806011,
+      "line_count": 15
+    }
+  ]
+}

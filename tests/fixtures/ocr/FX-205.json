@@ -1,0 +1,11 @@
+{
+  "fax_id": "FX-205",
+  "pages": [
+    {
+      "text": "HARBORCOMMUNITYPHARMACY\nFAX TRANSMISSION / SCANNED DOCUMENT\nPRESCRIPTION REFILLREQUEST\nRequestnumber:RX-4005\nPatient:SydneyPatel\nDOB:08/07/1988\nMedication:Lisinopril 10mg tablet\nRequest:Renewalauthorizationrequested\nPrescriber:Dr.M.Shaw\nPharmacycallback:(555)010-0105\nNo dispensing authorization is implied by thisfax.\nReplytopharmacythroughnormal clinicworkflow.\nCONFIDENTIAL-SYNTHETICTRAININGDOCUMENT\nTransmissionFX-205Page1of1",
+      "min_conf": 0.9428398966789245,
+      "mean_conf": 0.9742690461664789,
+      "line_count": 14
+    }
+  ]
+}

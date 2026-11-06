@@ -1,0 +1,17 @@
+{
+  "fax_id": "FX-206",
+  "pages": [
+    {
+      "text": "HILLSIDERECORDS OFFICE\nFAXTRANSMISSION/SCANNEDDOCUMENT\nREQUESTFOR MEDICALRECORDS\nRecords requestID:MR-4006\nPatient:Cameron Blake\nDOB:02/09/1980\nRequestingentity:HillsideMedical Group\nRequested records:Officevisits,imaging reports\nDaterangerequested:2025-2026\nPatientauthorization:Includedonpage2\nPleaseprocessaccording to clinicreleasepolicy.\nCONFIDENTIAL-SYNTHETICTRAININGDOCUMENT\nTransmissionFX-206Page1of2",
+      "min_conf": 0.9673854760501696,
+      "mean_conf": 0.979225390429928,
+      "line_count": 13
+    },
+    {
+      "text": "HILLSIDE RECORDS OFFICE\nFAXTRANSMISSION/SCANNEDDOCUMENT\nAUTHORIZATIONTORELEASEINFORMATION\nRelatedrequest:MR-4006\nPatient:CameronBlake\nI authorizereleaseofrecords toHillsideMedical Group.\nSignature:CameronBlake(syntheticexample)\nDatesigned:10/31/2026\nForassessmentpurposesonly.\nCONFIDENTIAL-SYNTHETICTRAININGDOCUMENT\nTransmissionFX-206Page2of2",
+      "min_conf": 0.9683063924312592,
+      "mean_conf": 0.984280535542021,
+      "line_count": 11
+    }
+  ]
+}
